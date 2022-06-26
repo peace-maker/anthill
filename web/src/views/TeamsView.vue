@@ -1,0 +1,16 @@
+<template>
+  <v-card>
+    <v-card-title>Teams</v-card-title>
+    <v-card-text>
+      <v-data-table dense :headers="['foo', 'bar']"></v-data-table>
+    </v-card-text>
+  </v-card>
+</template>
+
+<script lang="ts">
+import Vue from "vue";
+
+export default Vue.extend({
+  name: "TeamsView",
+});
+</script>

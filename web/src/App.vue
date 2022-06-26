@@ -1,37 +1,63 @@
 <template>
-  <v-app>
-    <v-app-bar app color="primary" dark>
-      <div class="d-flex align-center">
-        <v-img
-          alt="Vuetify Logo"
-          class="shrink mr-2"
-          contain
-          src="https://cdn.vuetifyjs.com/images/logos/vuetify-logo-dark.png"
-          transition="scale-transition"
-          width="40"
-        />
+  <v-app id="inspire">
+    <v-app-bar clipped-left app>
+      <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
 
-        <v-img
-          alt="Vuetify Name"
-          class="shrink mt-1 hidden-sm-and-down"
-          contain
-          min-width="100"
-          src="https://cdn.vuetifyjs.com/images/logos/vuetify-name-dark.png"
-          width="100"
-        />
-      </div>
-
-      <v-spacer></v-spacer>
-
-      <v-btn
-        href="https://github.com/vuetifyjs/vuetify/releases/latest"
-        target="_blank"
-        text
-      >
-        <span class="mr-2">Latest Release</span>
-        <v-icon>mdi-open-in-new</v-icon>
-      </v-btn>
+      <v-toolbar-title>Anthill</v-toolbar-title>
     </v-app-bar>
+
+    <v-navigation-drawer v-model="drawer" app clipped>
+      <v-list dense nav>
+        <v-list-item link to="/">
+          <v-list-item-icon>
+            <v-icon>mdi-help-circle-outline</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>Help</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+        <v-list-item link to="/status">
+          <v-list-item-icon>
+            <v-icon>mdi-poll</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>Status</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+        <v-list-item link to="/stats">
+          <v-list-item-icon>
+            <v-icon>mdi-chart-line</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>Statistics</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+        <v-list-item link to="/exploits">
+          <v-list-item-icon>
+            <v-icon>mdi-heart-multiple-outline</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>Exploits</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+        <v-list-item link to="/teams">
+          <v-list-item-icon>
+            <v-icon>mdi-account-multiple-outline</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>Teams</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+        <v-list-item link to="/config">
+          <v-list-item-icon>
+            <v-icon>mdi-cog-outline</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>Configuration</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+      </v-list>
+    </v-navigation-drawer>
 
     <v-main>
       <router-view />
@@ -46,7 +72,7 @@ export default Vue.extend({
   name: "App",
 
   data: () => ({
-    //
+    drawer: false,
   }),
 });
 </script>

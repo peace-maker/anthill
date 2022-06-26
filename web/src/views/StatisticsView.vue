@@ -1,6 +1,6 @@
 <template>
   <v-card>
-    <v-card-title>Welcome to Anthill</v-card-title>
+    <v-card-title>Statistics</v-card-title>
     <v-card-text>TODO</v-card-text>
   </v-card>
 </template>
@@ -9,6 +9,6 @@
 import Vue from "vue";
 
 export default Vue.extend({
-  name: "HomePage",
+  name: "StatisticsView",
 });
 </script>
