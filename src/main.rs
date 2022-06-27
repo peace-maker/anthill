@@ -1,18 +1,26 @@
-use actix_files::{Files, NamedFile};
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
+#[macro_use]
+extern crate diesel;
+#[macro_use]
+extern crate diesel_migrations;
 
-mod server;
-use actix_web_actors::ws;
-use server::TestWebSocket;
+use actix_web::{middleware::Logger, web, App, HttpServer};
+use diesel::pg::PgConnection;
+use diesel::r2d2::{self, ConnectionManager};
+use diesel_migrations::{embed_migrations, RunMigrationsError};
+
+mod schema;
+mod webserver;
+//mod flag_submitter;
+//mod exploit;
+mod team;
+//mod settings;
+
 use clap::Parser;
 
-async fn index() -> impl Responder {
-    NamedFile::open_async("./dist/index.html").await.unwrap()
-}
+pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
-async fn test_ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
-    ws::start(TestWebSocket::new(), &req, stream)
-}
+// Embed the sql schema into the binary.
+embed_migrations!();
 
 /// Anthill exploit thrower
 #[derive(Parser, Debug)]
@@ -27,15 +35,33 @@ struct Args {
     port: u16,
 }
 
+pub fn do_database_migration(pool: &r2d2::Pool<ConnectionManager<PgConnection>>) -> Result<(), RunMigrationsError> {
+    let conn =pool.get()
+        .expect(&format!("Error grabbing a connection for initial migration"));
+    
+    embedded_migrations::run(&conn)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
+    
+    dotenv::dotenv().ok();
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    let pool = r2d2::Pool::builder()
+    .build(manager)
+    .expect("Failed to create pool.");
+    do_database_migration(&pool).expect("Failed to migrate the database.");
+
+    log::info!("starting HTTP server at http://{}:{}", args.address, args.port);
     HttpServer::new(move || {
         App::new()
-            .service(web::resource("/").to(index))
-            .route("/ws", web::get().to(test_ws))
-            .service(Files::new("/", "./dist"))
+            .app_data(web::Data::new(pool.clone()))
+            .configure(webserver::config)
+            .wrap(Logger::default())
     })
     .bind((args.address, args.port))?
     .run()
