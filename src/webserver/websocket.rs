@@ -4,7 +4,7 @@ use actix::prelude::*;
 use actix_web_actors::ws::{self, CloseReason, CloseCode};
 
 use serde::Deserialize;
-use crate::webserver::rest_api::ApiError;
+use super::rest_api::ApiError;
 use crate::DbPool;
 use crate::team;
 
@@ -104,7 +104,6 @@ impl Actor for WsApiSession {
     /// Method is called on actor start. We start the heartbeat process here.
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx);
-        ctx.text(format!("Connected! Server Instant: {:?}", Instant::now()));
     }
 }
 

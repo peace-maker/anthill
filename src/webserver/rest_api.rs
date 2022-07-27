@@ -30,7 +30,7 @@ async fn get_teams(
     if let Some(team_list) = team_list {
         Ok(HttpResponse::Ok().json(team_list))
     } else {
-        let res = HttpResponse::NotFound().json(ApiError { error: format!("Failed to fetch team list.") });
+        let res = HttpResponse::NotFound().json(ApiError { error: "Failed to fetch team list.".to_string() });
         Ok(res)
     }
 }

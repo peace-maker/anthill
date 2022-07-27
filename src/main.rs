@@ -37,7 +37,7 @@ struct Args {
 
 pub fn do_database_migration(pool: &r2d2::Pool<ConnectionManager<PgConnection>>) -> Result<(), RunMigrationsError> {
     let conn =pool.get()
-        .expect(&format!("Error grabbing a connection for initial migration"));
+        .expect("Error grabbing a connection for initial migration");
     
     embedded_migrations::run(&conn)
 }

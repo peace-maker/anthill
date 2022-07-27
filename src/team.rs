@@ -1,5 +1,5 @@
 use diesel::prelude::*;
-use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use diesel::sql_types::*;
 use diesel::backend::Backend;
