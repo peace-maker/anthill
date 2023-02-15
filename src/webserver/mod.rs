@@ -1,5 +1,5 @@
-use actix_files::{Files, NamedFile};
-use actix_web::{get, web, Error, HttpRequest, HttpResponse, Responder};
+use actix_files::{Files};
+use actix_web::{web, Error, HttpRequest, HttpResponse};
 
 use actix_web_actors::ws;
 use crate::DbPool;

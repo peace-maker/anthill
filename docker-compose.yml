@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  db:
+    image: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: anthill
+      POSTGRES_USER: anthill
+      POSTGRES_DB: anthill
+    ports:
+      - 127.0.0.1:5432:5432
+  
+  anthill:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgres://anthill:anthill@db:5432/anthill
+    ports:
+      - 8080:8080
