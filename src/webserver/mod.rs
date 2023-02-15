@@ -6,16 +6,10 @@ use crate::DbPool;
 mod websocket;
 mod rest_api;
 
-pub fn config(cfg: &mut web::ServiceConfig) {
-    cfg.service(index)
-    .configure(rest_api::config)
+pub fn config(cfg: &mut web::ServiceConfig, frontend_path: &str) {
+    cfg.configure(rest_api::config)
     .route("/ws", web::get().to(handle_websocket))
-    .service(Files::new("/", "./dist"));
-}
-
-#[get("/")]
-async fn index() -> impl Responder {
-    NamedFile::open_async("./dist/index.html").await.unwrap()
+    .service(Files::new("/", frontend_path).index_file("index.html"));
 }
 
 async fn handle_websocket(

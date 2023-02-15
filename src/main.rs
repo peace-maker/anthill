@@ -33,6 +33,10 @@ struct Args {
     /// Port to listen on
     #[clap(short, long, value_parser, default_value_t = 8080)]
     port: u16,
+
+    /// Path to the frontend files
+    #[clap(short, long, value_parser, default_value = "./dist")]
+    frontend_path: String,
 }
 
 pub fn do_database_migration(pool: &r2d2::Pool<ConnectionManager<PgConnection>>) -> Result<(), RunMigrationsError> {
@@ -60,7 +64,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .configure(webserver::config)
+            .configure(|cfg: &mut web::ServiceConfig| webserver::config(cfg, &args.frontend_path))
             .wrap(Logger::default())
     })
     .bind((args.address, args.port))?
