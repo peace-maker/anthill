@@ -66,19 +66,19 @@ impl WsApiSession {
         });
     }
 
-    fn handle_command(&mut self, ctx: &mut <WsApiSession as Actor>::Context, message: &str) -> Result<(), team::DbError> {
+    fn handle_command(&mut self, ctx: &mut <WsApiSession as Actor>::Context, message: &str) -> Result<(), crate::db::Error> {
         let command: ApiCommand = serde_json::from_str(message)?;
 
         match command.cmd.as_str() {
             "teams" => {
-                let conn = self.pool.get()?;
-                let team_list = team::get_teams(&conn)?;
+                let conn = &mut self.pool.get()?;
+                let team_list = team::get_teams(conn)?;
                 ctx.text(serde_json::to_string(&team_list).unwrap());
             }
             "get_team" => {
                 let command: WsApiCommandGetTeam = serde_json::from_str(message)?;
-                let conn = self.pool.get()?;
-                let team = team::find_team_by_id(command.team_id, &conn)?;
+                let conn = &mut self.pool.get()?;
+                let team = team::find_team_by_id(conn, command.team_id)?;
 
                 if let Some(team) = team {
                     ctx.text(serde_json::to_string(&team).unwrap());

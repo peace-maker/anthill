@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate diesel;
-#[macro_use]
 extern crate diesel_migrations;
 
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
-use diesel_migrations::{embed_migrations, RunMigrationsError};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
 mod schema;
 mod webserver;
+mod db;
 //mod flag_submitter;
 //mod exploit;
 mod team;
@@ -20,7 +20,7 @@ use clap::Parser;
 pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 // Embed the sql schema into the binary.
-embed_migrations!();
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 /// Anthill exploit thrower
 #[derive(Parser, Debug)]
@@ -39,11 +39,12 @@ struct Args {
     frontend_path: String,
 }
 
-pub fn do_database_migration(pool: &r2d2::Pool<ConnectionManager<PgConnection>>) -> Result<(), RunMigrationsError> {
-    let conn =pool.get()
+pub fn do_database_migration(pool: &r2d2::Pool<ConnectionManager<PgConnection>>) -> Result<(), db::Error> {
+    let conn = &mut pool.get()
         .expect("Error grabbing a connection for initial migration");
     
-    embedded_migrations::run(&conn)
+    conn.run_pending_migrations(MIGRATIONS)?;
+    Ok(())
 }
 
 #[actix_web::main]

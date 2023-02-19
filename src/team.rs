@@ -2,14 +2,14 @@ use diesel::prelude::*;
 
 use serde::{Deserialize, Serialize};
 use diesel::sql_types::*;
-use diesel::backend::Backend;
 use diesel::deserialize::{self, FromSql};
 use diesel::serialize::{self, ToSql, Output};
 use crate::schema::{teams, team_key_values};
+use crate::db;
+use diesel::pg::{Pg, PgValue};
 
-pub type DbError = Box<dyn std::error::Error + Send + Sync>;
-
-#[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize, AsExpression, FromSqlRow)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, AsExpression, FromSqlRow)]
+#[diesel(sql_type = SmallInt)]
 pub enum TeamState {
     /// Can be attacked.
     Active,
@@ -19,55 +19,50 @@ pub enum TeamState {
     Deleted,
 }
 
-impl<DB: Backend> ToSql<SmallInt, DB> for TeamState
-where
-    i16: ToSql<SmallInt, DB>,
+impl ToSql<SmallInt, Pg> for TeamState
 {
-    fn to_sql<W>(&self, out: &mut Output<W, DB>) -> serialize::Result
-    where
-        W: std::io::Write,
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result
     {
         let v = match *self {
             TeamState::Active => 1,
             TeamState::Inactive => 2,
             TeamState::Deleted => 3,
         };
-        v.to_sql(out)
+        <i16 as ToSql<SmallInt, Pg>>::to_sql(&v, &mut out.reborrow())
     }
 }
 
-impl<DB: Backend> FromSql<SmallInt, DB> for TeamState
+impl FromSql<SmallInt, Pg> for TeamState
 where
-    i16: FromSql<SmallInt, DB>,
+    i16: FromSql<SmallInt, Pg>,
 {
-    fn from_sql(bytes: Option<&DB::RawValue>) -> deserialize::Result<Self> {
+    fn from_sql(bytes: PgValue) -> deserialize::Result<Self> {
         let v = i16::from_sql(bytes)?;
         Ok(match v {
             1 => TeamState::Active,
             2 => TeamState::Inactive,
             3 => TeamState::Deleted,
-            _ => return Err("replace me with a real error".into()),
+            id => return Err(format!("invalid team state id {}", id).into()),
         })
     }
 }
 
-#[derive(Identifiable, Queryable, Serialize, Deserialize, PartialEq, Debug)]
-#[table_name = "teams"]
+#[derive(Identifiable, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Eq, PartialEq, Debug)]
+#[diesel(table_name = teams)]
 pub struct Team {
     /// Team ID identifying the team in the CTF platform.
     id: i32,
     /// Team name for pretty printing.
     name: Option<String>,
-    /// Custom meta key/values which can be accessed in the template patterns.
-    //meta: HashMap<String, String>,
     /// Should the team be attacked by default?
     state: TeamState,
 }
 
-#[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
-#[table_name = "team_key_values"]
-#[primary_key(team_id)]
-#[belongs_to(Team)]
+/// Custom meta key/values which can be accessed in the template patterns.
+#[derive(Identifiable, Queryable, AsChangeset, Associations, Eq, PartialEq, Debug)]
+#[diesel(table_name = team_key_values)]
+#[diesel(primary_key(team_id, key))]
+#[diesel(belongs_to(Team))]
 pub struct TeamMeta {
     team_id: i32,
     key: String,
@@ -79,30 +74,43 @@ impl Team {
     pub fn should_attack(&self) -> bool {
         self.state == TeamState::Active
     }
+
+    pub fn get_meta_data(&self, conn: &mut PgConnection) -> Result<Vec<TeamMeta>, db::Error> {
+        Ok(TeamMeta::belonging_to(self).load::<TeamMeta>(conn)?
+            .into_iter()
+            .collect::<Vec<TeamMeta>>())
+    }
+
+    pub fn set_name(&mut self, conn: &mut PgConnection, name: String) -> Result<(), db::Error> {
+        self.name = Some(name);
+        diesel::update(&*self).set(&*self).execute(conn)?;
+        Ok(())
+    }
+
+    pub fn set_state(&mut self, conn: &mut PgConnection, state: TeamState) -> Result<(), db::Error> {
+        self.state = state;
+        diesel::update(&*self).set(&*self).execute(conn)?;
+        Ok(())
+    }
 }
 
 pub fn find_team_by_id(
+    conn: &mut PgConnection,
     team_id: i32,
-    conn: &PgConnection,
-) -> Result<Option<Team>, DbError> {
+) -> Result<Option<Team>, db::Error> {
     use crate::schema::teams::dsl::*;
 
     let team = teams
         .filter(id.eq(team_id))
         .first::<Team>(conn)
         .optional()?;
-    
-    // if let Some(ref team) = team {
-    //     let team_meta = TeamMeta::belonging_to(team).load::<TeamMeta>(conn);
-
-    // }
 
     Ok(team)
 }
 
 pub fn get_teams(
-    conn: &PgConnection,
-) -> Result<Option<Vec<Team>>, DbError> {
+    conn: &mut PgConnection,
+) -> Result<Option<Vec<Team>>, db::Error> {
     use crate::schema::teams::dsl::*;
 
     let team_list = teams
@@ -110,4 +118,13 @@ pub fn get_teams(
         .optional()?;
 
     Ok(team_list)
+}
+
+pub fn add_team(conn: &mut PgConnection, team: Team) -> Result<(), db::Error> {
+    use crate::schema::teams::dsl::*;
+
+    diesel::insert_into(teams)
+        .values(&team)
+        .execute(conn)?;
+    Ok(())
 }
