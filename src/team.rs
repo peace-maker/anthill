@@ -1,12 +1,12 @@
 use diesel::prelude::*;
 
-use serde::{Deserialize, Serialize};
-use diesel::sql_types::*;
-use diesel::deserialize::{self, FromSql};
-use diesel::serialize::{self, ToSql, Output};
-use crate::schema::{teams, team_key_values};
 use crate::db;
+use crate::schema::{team_key_values, teams};
+use diesel::deserialize::{self, FromSql};
 use diesel::pg::{Pg, PgValue};
+use diesel::serialize::{self, Output, ToSql};
+use diesel::sql_types::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, AsExpression, FromSqlRow)]
 #[diesel(sql_type = SmallInt)]
@@ -19,10 +19,8 @@ pub enum TeamState {
     Deleted,
 }
 
-impl ToSql<SmallInt, Pg> for TeamState
-{
-    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result
-    {
+impl ToSql<SmallInt, Pg> for TeamState {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
         let v = match *self {
             TeamState::Active => 1,
             TeamState::Inactive => 2,
@@ -47,7 +45,9 @@ where
     }
 }
 
-#[derive(Identifiable, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Eq, PartialEq, Debug)]
+#[derive(
+    Identifiable, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Eq, PartialEq, Debug,
+)]
 #[diesel(table_name = teams)]
 pub struct Team {
     /// Team ID identifying the team in the CTF platform.
@@ -76,7 +76,8 @@ impl Team {
     }
 
     pub fn get_meta_data(&self, conn: &mut PgConnection) -> Result<Vec<TeamMeta>, db::Error> {
-        Ok(TeamMeta::belonging_to(self).load::<TeamMeta>(conn)?
+        Ok(TeamMeta::belonging_to(self)
+            .load::<TeamMeta>(conn)?
             .into_iter()
             .collect::<Vec<TeamMeta>>())
     }
@@ -87,17 +88,18 @@ impl Team {
         Ok(())
     }
 
-    pub fn set_state(&mut self, conn: &mut PgConnection, state: TeamState) -> Result<(), db::Error> {
+    pub fn set_state(
+        &mut self,
+        conn: &mut PgConnection,
+        state: TeamState,
+    ) -> Result<(), db::Error> {
         self.state = state;
         diesel::update(&*self).set(&*self).execute(conn)?;
         Ok(())
     }
 }
 
-pub fn find_team_by_id(
-    conn: &mut PgConnection,
-    team_id: i32,
-) -> Result<Option<Team>, db::Error> {
+pub fn find_team_by_id(conn: &mut PgConnection, team_id: i32) -> Result<Option<Team>, db::Error> {
     use crate::schema::teams::dsl::*;
 
     let team = teams
@@ -108,14 +110,10 @@ pub fn find_team_by_id(
     Ok(team)
 }
 
-pub fn get_teams(
-    conn: &mut PgConnection,
-) -> Result<Option<Vec<Team>>, db::Error> {
+pub fn get_teams(conn: &mut PgConnection) -> Result<Option<Vec<Team>>, db::Error> {
     use crate::schema::teams::dsl::*;
 
-    let team_list = teams
-        .load::<Team>(conn)
-        .optional()?;
+    let team_list = teams.load::<Team>(conn).optional()?;
 
     Ok(team_list)
 }
@@ -123,8 +121,6 @@ pub fn get_teams(
 pub fn add_team(conn: &mut PgConnection, team: Team) -> Result<(), db::Error> {
     use crate::schema::teams::dsl::*;
 
-    diesel::insert_into(teams)
-        .values(&team)
-        .execute(conn)?;
+    diesel::insert_into(teams).values(&team).execute(conn)?;
     Ok(())
 }

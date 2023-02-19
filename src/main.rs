@@ -7,9 +7,9 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
+mod db;
 mod schema;
 mod webserver;
-mod db;
 //mod flag_submitter;
 //mod exploit;
 mod team;
@@ -39,10 +39,13 @@ struct Args {
     frontend_path: String,
 }
 
-pub fn do_database_migration(pool: &r2d2::Pool<ConnectionManager<PgConnection>>) -> Result<(), db::Error> {
-    let conn = &mut pool.get()
+pub fn do_database_migration(
+    pool: &r2d2::Pool<ConnectionManager<PgConnection>>,
+) -> Result<(), db::Error> {
+    let conn = &mut pool
+        .get()
         .expect("Error grabbing a connection for initial migration");
-    
+
     conn.run_pending_migrations(MIGRATIONS)?;
     Ok(())
 }
@@ -50,18 +53,22 @@ pub fn do_database_migration(pool: &r2d2::Pool<ConnectionManager<PgConnection>>)
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
-    
+
     dotenv::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     let pool = r2d2::Pool::builder()
-    .build(manager)
-    .expect("Failed to create pool.");
+        .build(manager)
+        .expect("Failed to create pool.");
     do_database_migration(&pool).expect("Failed to migrate the database.");
 
-    log::info!("starting HTTP server at http://{}:{}", args.address, args.port);
+    log::info!(
+        "starting HTTP server at http://{}:{}",
+        args.address,
+        args.port
+    );
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))

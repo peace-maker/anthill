@@ -1,12 +1,12 @@
 use std::time::{Duration, Instant};
 
 use actix::prelude::*;
-use actix_web_actors::ws::{self, CloseReason, CloseCode};
+use actix_web_actors::ws::{self, CloseCode, CloseReason};
 
-use serde::Deserialize;
 use super::rest_api::ApiError;
-use crate::DbPool;
 use crate::team;
+use crate::DbPool;
+use serde::Deserialize;
 
 /// How often heartbeat pings are sent
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -26,7 +26,7 @@ pub struct WsApiSession {
 
 #[derive(Debug)]
 struct WsApiError {
-    error: String
+    error: String,
 }
 impl std::fmt::Display for WsApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -37,12 +37,15 @@ impl std::error::Error for WsApiError {}
 
 #[derive(Deserialize)]
 struct WsApiCommandGetTeam {
-    team_id: i32
+    team_id: i32,
 }
 
 impl WsApiSession {
     pub fn new(pool: DbPool) -> Self {
-        Self { hb: Instant::now(), pool }
+        Self {
+            hb: Instant::now(),
+            pool,
+        }
     }
 
     /// helper method that sends ping to client every second.
@@ -66,7 +69,11 @@ impl WsApiSession {
         });
     }
 
-    fn handle_command(&mut self, ctx: &mut <WsApiSession as Actor>::Context, message: &str) -> Result<(), crate::db::Error> {
+    fn handle_command(
+        &mut self,
+        ctx: &mut <WsApiSession as Actor>::Context,
+        message: &str,
+    ) -> Result<(), crate::db::Error> {
         let command: ApiCommand = serde_json::from_str(message)?;
 
         match command.cmd.as_str() {
@@ -83,18 +90,24 @@ impl WsApiSession {
                 if let Some(team) = team {
                     ctx.text(serde_json::to_string(&team).unwrap());
                 } else {
-                    ctx.text(serde_json::to_string(&ApiError { error: format!("No team found with id: {}", command.team_id) }).unwrap());
+                    ctx.text(
+                        serde_json::to_string(&ApiError {
+                            error: format!("No team found with id: {}", command.team_id),
+                        })
+                        .unwrap(),
+                    );
                 }
             }
             _ => {
-                let error =  ApiError { error: format!("Unknown command: {}", command.cmd) };
+                let error = ApiError {
+                    error: format!("Unknown command: {}", command.cmd),
+                };
                 ctx.text(serde_json::to_string(&error).unwrap());
                 log::error!("{}", error.error);
-                return Err(Box::new(WsApiError { error: error.error }))
+                return Err(Box::new(WsApiError { error: error.error }));
             }
         }
         Ok(())
-       
     }
 }
 
@@ -141,7 +154,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsApiSession {
                     ctx.close(Some(CloseReason::from(CloseCode::Error)));
                     ctx.stop();
                 }
-            },
+            }
             ws::Message::Binary(_) => log::error!("Unexpected binary"),
             ws::Message::Close(reason) => {
                 ctx.close(reason);

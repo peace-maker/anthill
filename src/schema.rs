@@ -16,7 +16,4 @@ table! {
 
 joinable!(team_key_values -> teams (team_id));
 
-allow_tables_to_appear_in_same_query!(
-    team_key_values,
-    teams,
-);
+allow_tables_to_appear_in_same_query!(team_key_values, teams,);
