@@ -53,9 +53,9 @@ pub struct Team {
     /// Team ID identifying the team in the CTF platform.
     id: i32,
     /// Team name for pretty printing.
-    name: Option<String>,
+    pub name: Option<String>,
     /// Should the team be attacked by default?
-    state: TeamState,
+    pub state: TeamState,
 }
 
 /// Custom meta key/values which can be accessed in the template patterns.
@@ -82,10 +82,14 @@ impl Team {
             .collect::<Vec<TeamMeta>>())
     }
 
-    pub fn set_name(&mut self, conn: &mut PgConnection, name: String) -> Result<(), db::Error> {
-        self.name = Some(name);
+    pub fn save(&mut self, conn: &mut PgConnection) -> Result<(), db::Error> {
         diesel::update(&*self).set(&*self).execute(conn)?;
         Ok(())
+    }
+
+    pub fn set_name(&mut self, conn: &mut PgConnection, name: String) -> Result<(), db::Error> {
+        self.name = Some(name);
+        self.save(conn)
     }
 
     pub fn set_state(
@@ -94,8 +98,7 @@ impl Team {
         state: TeamState,
     ) -> Result<(), db::Error> {
         self.state = state;
-        diesel::update(&*self).set(&*self).execute(conn)?;
-        Ok(())
+        self.save(conn)
     }
 }
 

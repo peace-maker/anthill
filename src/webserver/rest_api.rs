@@ -1,5 +1,6 @@
 use crate::team;
 use crate::DbPool;
+use actix_web::{get, patch, put, web, Error, HttpResponse};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -9,7 +10,11 @@ pub struct ApiError {
 }
 
 pub fn config(cfg: &mut web::ServiceConfig) {
-    let rest_api = web::scope("/api").service(get_teams).service(get_team);
+    let rest_api = web::scope("/api")
+        .service(get_teams)
+        .service(get_team)
+        .service(add_team)
+        .service(update_team);
 
     cfg.service(rest_api);
 }
@@ -51,7 +56,7 @@ async fn get_teams(
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-        Ok(HttpResponse::Ok().json(team_list))
+    Ok(HttpResponse::Ok().json(team_list))
 }
 
 #[get("/team/{team_id}")]
@@ -100,4 +105,36 @@ async fn add_team(
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(team))
+}
+
+#[patch("/team/{team_id}")]
+async fn update_team(
+    pool: web::Data<DbPool>,
+    team_id: web::Path<i32>,
+    new_team: web::Json<team::Team>,
+) -> Result<HttpResponse, Error> {
+    let team_id = team_id.into_inner();
+    let new_team = new_team.into_inner();
+    let team = web::block(move || -> Result<Option<team::Team>, crate::db::Error> {
+        let conn = &mut pool.get()?;
+        match team::find_team_by_id(conn, team_id)? {
+            Some(mut team) => {
+                team.name = new_team.name.clone();
+                team.state = new_team.state;
+                team.save(conn)?;
+                Ok(Some(team))
+            }
+            None => Ok(None),
+        }
+    })
+    .await?
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    if let Some(team) = team {
+        Ok(HttpResponse::Ok().json(team))
+    } else {
+        Ok(HttpResponse::NotFound().json(ApiError {
+            error: format!("No team found with id: {team_id}"),
+        }))
+    }
 }
