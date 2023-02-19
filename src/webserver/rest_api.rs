@@ -1,6 +1,6 @@
 use crate::team;
 use crate::DbPool;
-use actix_web::{get, put, web, Error, HttpResponse};
+use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -14,31 +14,66 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(rest_api);
 }
 
+#[derive(Deserialize)]
+struct TeamArguments {
+    include_meta_values: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct TeamResult {
+    team: team::Team,
+    meta_data: Option<Vec<team::TeamMeta>>,
+}
+
 #[get("/teams")]
-async fn get_teams(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
-    let team_list = web::block(move || {
+async fn get_teams(
+    pool: web::Data<DbPool>,
+    args: web::Query<TeamArguments>,
+) -> Result<HttpResponse, Error> {
+    let team_list = web::block(move || -> Result<Vec<TeamResult>, crate::db::Error> {
         let conn = &mut pool.get()?;
-        team::get_teams(conn)
+        let db_team_list = team::get_teams(conn)?;
+
+        let mut team_list = Vec::new();
+        for db_team in db_team_list {
+            let meta_data = if args.include_meta_values.unwrap_or(false) {
+                Some(db_team.get_meta_data(conn)?)
+            } else {
+                None
+            };
+            team_list.push(TeamResult {
+                team: db_team,
+                meta_data,
+            });
+        }
+        Ok(team_list)
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    if let Some(team_list) = team_list {
         Ok(HttpResponse::Ok().json(team_list))
-    } else {
-        let res = HttpResponse::NotFound().json(ApiError {
-            error: "Failed to fetch team list.".to_string(),
-        });
-        Ok(res)
-    }
 }
 
 #[get("/team/{team_id}")]
-async fn get_team(pool: web::Data<DbPool>, team_id: web::Path<i32>) -> Result<HttpResponse, Error> {
+async fn get_team(
+    pool: web::Data<DbPool>,
+    args: web::Query<TeamArguments>,
+    team_id: web::Path<i32>,
+) -> Result<HttpResponse, Error> {
     let team_id = team_id.into_inner();
-    let team = web::block(move || {
+    let team = web::block(move || -> Result<Option<TeamResult>, crate::db::Error> {
         let conn = &mut pool.get()?;
-        team::find_team_by_id(conn, team_id)
+        match team::find_team_by_id(conn, team_id)? {
+            Some(team) => {
+                let meta_data = if args.include_meta_values.unwrap_or(false) {
+                    Some(team.get_meta_data(conn)?)
+                } else {
+                    None
+                };
+                Ok(Some(TeamResult { team, meta_data }))
+            }
+            None => Ok(None),
+        }
     })
     .await?
     .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -46,10 +81,9 @@ async fn get_team(pool: web::Data<DbPool>, team_id: web::Path<i32>) -> Result<Ht
     if let Some(team) = team {
         Ok(HttpResponse::Ok().json(team))
     } else {
-        let res = HttpResponse::NotFound().json(ApiError {
+        Ok(HttpResponse::NotFound().json(ApiError {
             error: format!("No team found with id: {team_id}"),
-        });
-        Ok(res)
+        }))
     }
 }
 

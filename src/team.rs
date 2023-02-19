@@ -59,7 +59,7 @@ pub struct Team {
 }
 
 /// Custom meta key/values which can be accessed in the template patterns.
-#[derive(Identifiable, Queryable, AsChangeset, Associations, Eq, PartialEq, Debug)]
+#[derive(Identifiable, Queryable, AsChangeset, Associations, Serialize, Eq, PartialEq, Debug)]
 #[diesel(table_name = team_key_values)]
 #[diesel(primary_key(team_id, key))]
 #[diesel(belongs_to(Team))]
@@ -110,12 +110,9 @@ pub fn find_team_by_id(conn: &mut PgConnection, team_id: i32) -> Result<Option<T
     Ok(team)
 }
 
-pub fn get_teams(conn: &mut PgConnection) -> Result<Option<Vec<Team>>, db::Error> {
+pub fn get_teams(conn: &mut PgConnection) -> Result<Vec<Team>, db::Error> {
     use crate::schema::teams::dsl::*;
-
-    let team_list = teams.load::<Team>(conn).optional()?;
-
-    Ok(team_list)
+    Ok(teams.load::<Team>(conn)?)
 }
 
 pub fn add_team(conn: &mut PgConnection, team: Team) -> Result<(), db::Error> {
